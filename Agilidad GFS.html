@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GFS: Decidir bajo presión</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #131a2e;
+      --panel-2: #1a2340;
+      --text: #ecf1ff;
+      --muted: #aeb8d8;
+      --accent: #69a7ff;
+      --good: #60d394;
+      --bad: #ff6b6b;
+      --warn: #ffd166;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 20px 50px rgba(0,0,0,0.28);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(105,167,255,0.14), transparent 26%),
+        radial-gradient(circle at bottom left, rgba(255,209,102,0.10), transparent 22%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-main {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(105,167,255,0.12);
+      color: #cfe0ff;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 1.02;
+      letter-spacing: -1.4px;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.55;
+      max-width: 90%;
+    }
+
+    .hero-side {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .small-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #c7d3ff;
+      margin-bottom: 12px;
+      opacity: 0.82;
+    }
+
+    .context {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+
+    .pulse {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .pulse-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .pulse-item b { display: block; font-size: 20px; margin-bottom: 4px; }
+    .pulse-item span { color: var(--muted); font-size: 13px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 0.72fr 1.28fr;
+      gap: 18px;
+    }
+
+    .sidebar, .stage { min-height: 600px; }
+    .sidebar { padding: 22px; }
+    .stage { padding: 22px; }
+
+    .meter-group {
+      margin-bottom: 18px;
+    }
+
+    .meter-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .meter-head span:last-child {
+      color: #dce7ff;
+      font-weight: 700;
+    }
+
+    .bar {
+      width: 100%;
+      height: 12px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.35s ease;
+      background: linear-gradient(90deg, #79b0ff, #9cc8ff);
+    }
+
+    .fill.good { background: linear-gradient(90deg, #46c98a, #7de3af); }
+    .fill.warn { background: linear-gradient(90deg, #ffca5c, #ffe08a); }
+    .fill.bad  { background: linear-gradient(90deg, #ff6b6b, #ff9c9c); }
+
+    .phase {
+      display: inline-flex;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      color: #dfe8ff;
+      font-size: 13px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 3vw, 38px);
+      line-height: 1.08;
+      letter-spacing: -0.8px;
+    }
+
+    .scenario {
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 17px;
+      margin-bottom: 20px;
+      max-width: 920px;
+    }
+
+    .question-box {
+      padding: 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      margin-bottom: 18px;
+    }
+
+    .question-box h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: -0.4px;
+    }
+
+    .question-box p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .option {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border-radius: 20px;
+      padding: 18px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .option:hover {
+      transform: translateY(-2px);
+      border-color: rgba(105,167,255,0.4);
+      background: linear-gradient(180deg, rgba(105,167,255,0.10), rgba(255,255,255,0.03));
+    }
+
+    .option.active {
+      border-color: rgba(105,167,255,0.72);
+      background: linear-gradient(180deg, rgba(105,167,255,0.16), rgba(255,255,255,0.04));
+      box-shadow: 0 0 0 1px rgba(105,167,255,0.18) inset;
+    }
+
+    .option-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .option-text {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+
+    .impact-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .impact {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .impact.good { background: rgba(96,211,148,0.12); color: #9af0c0; }
+    .impact.bad { background: rgba(255,107,107,0.12); color: #ffb1b1; }
+    .impact.warn { background: rgba(255,209,102,0.12); color: #ffe39a; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .post-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .primary {
+      background: linear-gradient(180deg, #78b0ff, #5d91ff);
+      color: #081020;
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .feedback {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      display: none;
+    }
+
+    .feedback.show { display: block; }
+    .feedback h4 { margin: 0 0 8px; font-size: 18px; }
+    .feedback p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    .history {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .history-item {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .history-item:last-child { border-bottom: none; }
+    .history-item b { display: block; margin-bottom: 4px; }
+    .history-item span { color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .result-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .result-box h5 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      color: #d7e3ff;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .result-box p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 14px; }
+
+    .final-quote {
+      margin-top: 18px;
+      padding: 22px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(105,167,255,0.12), rgba(255,255,255,0.03));
+      border: 1px solid rgba(105,167,255,0.20);
+      font-size: 22px;
+      line-height: 1.45;
+      letter-spacing: -0.3px;
+    }
+
+    .source-note {
+      margin-top: 10px;
+      color: #9aa8cf;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .hero, .layout { grid-template-columns: 1fr; }
+      .lead { max-width: 100%; }
+      .result-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="card hero-main">
+        <div class="badge">Simulación de clase · Agilidad organizacional</div>
+        <h1>GFS: decidir bajo presión</h1>
+        <p class="lead">
+          La competencia está capturando talento, las sucursales operan como islas y el directorio exige respuestas.
+          En esta simulación, la agilidad no será un framework: será la forma en que diseñas decisiones bajo tensión.
+        </p>
+      </div>
+      <div class="card hero-side">
+        <div>
+          <div class="small-title">Contexto base</div>
+          <div class="context">
+            GFS opera con seis sucursales, sin un área formal de Gestión de Personas, con alta descentralización,
+            rotación relevante en cargos críticos y procesos de selección, inducción y coordinación altamente informales.
+          </div>
+          <div class="pulse">
+            <div class="pulse-item"><b>200</b><span>colaboradores aprox.</span></div>
+            <div class="pulse-item"><b>22%</b><span>rotación anual total</span></div>
+            <div class="pulse-item"><b>27%</b><span>rotación en cargos críticos</span></div>
+            <div class="pulse-item"><b>45 días</b><span>cobertura promedio de vacantes</span></div>
+          </div>
+        </div>
+        <div class="source-note">
+          Inspirado en el caso académico de Grupo Ferretero del Sur y en la discusión de agilidad como diseño organizacional.
+        </div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="card sidebar">
+        <div class="small-title">Pulso organizacional</div>
+
+        <div class="meter-group">
+          <div class="meter-head"><span>Velocidad</span><span id="mSpeed">50</span></div>
+          <div class="bar"><div id="speedFill" class="fill warn" style="width:50%"></div></div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-head"><span>Coherencia</span><span id="mCoh">40</span></div>
+          <div class="bar"><div id="cohFill" class="fill bad" style="width:40%"></div></div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-head"><span>Clima</span><span id="mClimate">55</span></div>
+          <div class="bar"><div id="climateFill" class="fill warn" style="width:55%"></div></div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-head"><span>Retención</span><span id="mRetention">42</span></div>
+          <div class="bar"><div id="retFill" class="fill bad" style="width:42%"></div></div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-head"><span>Confianza del directorio</span><span id="mBoard">48</span></div>
+          <div class="bar"><div id="boardFill" class="fill warn" style="width:48%"></div></div>
+        </div>
+
+        <div class="history">
+          <div class="small-title">Bitácora de decisiones</div>
+          <div id="historyList">
+            <div class="history-item">
+              <b>Punto de partida</b>
+              <span>GFS necesita ordenar la casa sin perder flexibilidad. El dilema no es técnico: es organizacional.</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="card stage">
+        <div id="phase" class="phase">Ronda 1 de 3</div>
+        <h2 id="title">Contratación: control o autonomía</h2>
+        <p id="scenario" class="scenario"></p>
+
+        <div class="question-box">
+          <h3 id="question"></h3>
+          <p id="instruction"></p>
+        </div>
+
+        <div id="options" class="options"></div>
+
+        <div class="actions">
+          <button id="applyBtn" class="primary" disabled>Aplicar decisión</button>
+          <button id="resetBtn" class="secondary">Reiniciar simulación</button>
+        </div>
+
+        <div id="feedback" class="feedback">
+          <h4 id="feedbackTitle">Consecuencia inmediata</h4>
+          <p id="feedbackText"></p>
+          <div id="postActions" class="post-actions" style="display:none;">
+            <button id="continueBtn" class="primary">Continuar</button>
+          </div>
+        </div>
+
+        <div id="finalScreen" style="display:none;"></div>
+      </main>
+    </section>
+  </div>
+
+  <script>
+    const rounds = [
+      {
+        title: "Contratación: control o autonomía",
+        scenario: "En GFS, la contratación está en manos de las jefaturas de local. No hay perfiles actualizados, las entrevistas suelen ser únicas, basadas en impresión general y urgencia operativa, y no existen lineamientos corporativos comunes. La empresa necesita contratar mejor, pero no puede paralizar la operación.",
+        question: "¿Cómo rediseñarías la contratación en este momento?",
+        instruction: "Elige una lógica de decisión. Ninguna opción es perfecta: cada una trae beneficios y costos.",
+        options: [
+          {
+            title: "Centralización casi total",
+            text: "La casa matriz diseña y controla reclutamiento, entrevistas y decisión final. Se privilegia coherencia y trazabilidad.",
+            tags: ["+ coherencia", "- velocidad", "- resistencia local"],
+            impacts: { speed: -12, coherence: 24, climate: -6, retention: 6, board: 10 },
+            feedback: "Logras mayor orden y consistencia entre sucursales. Sin embargo, varios jefes sienten que pierden control sobre su operación inmediata. La organización se vuelve más coherente, pero más lenta si no gestionas bien la transición.",
+            history: "Apostaste por orden y estandarización. Ganaste coherencia, pero activaste resistencia de jefaturas acostumbradas a decidir sin marco común."
+          },
+          {
+            title: "Modelo híbrido con mínimos comunes",
+            text: "Se centralizan perfiles, pautas y criterios de evaluación, pero la jefatura local sigue participando activamente en la decisión final.",
+            tags: ["+ equilibrio", "+ legitimidad", "+ escalabilidad"],
+            impacts: { speed: 6, coherence: 18, climate: 10, retention: 8, board: 12 },
+            feedback: "La organización gana lenguaje común sin asfixiar la autonomía local. La decisión es más lenta que antes en el corto plazo, pero mucho más sostenible. Empiezas a construir agilidad como coherencia con flexibilidad.",
+            history: "Elegiste una autonomía encuadrada: mismos criterios, decisiones menos arbitrarias y mayor legitimidad para el cambio."
+          },
+          {
+            title: "Autonomía local reforzada",
+            text: "Cada sucursal sigue contratando a su manera para responder rápido a vacantes y urgencias del negocio.",
+            tags: ["+ rapidez", "- inequidad", "- fragmentación"],
+            impacts: { speed: 16, coherence: -18, climate: 2, retention: -8, board: -10 },
+            feedback: "La cobertura de vacantes sigue siendo veloz en ciertas sucursales, pero la empresa profundiza su lógica de islas. Mantienes agilidad aparente en lo local, pero deterioras la capacidad organizacional de aprender y sostener estándares.",
+            history: "Priorizaste rapidez local. Ganaste velocidad táctica, pero reforzaste la fragmentación estructural de GFS."
+          }
+        ]
+      },
+      {
+        title: "Retención: dinero, desarrollo o experiencia de trabajo",
+        scenario: "La competencia está capturando a los mejores vendedores y jefes de patio de GFS con mejores beneficios, más estabilidad y planes de carrera. En GFS no existe una propuesta de valor al empleado formal y buena parte del reconocimiento sigue dependiendo del estilo de cada jefe.",
+        question: "¿Dónde intervendrías primero para frenar la fuga?",
+        instruction: "Piensa como directivo: no solo qué retiene hoy, sino qué sostiene la ventaja competitiva mañana.",
+        options: [
+          {
+            title: "Subir beneficios en roles críticos",
+            text: "Concentras recursos en vendedores técnicos y posiciones difíciles de reemplazar. Buscas evitar más fugas inmediatas.",
+            tags: ["+ señal potente", "+ urgencia", "- costo"],
+            impacts: { speed: 4, coherence: -2, climate: 4, retention: 18, board: -4 },
+            feedback: "Envías una señal fuerte al mercado interno y logras contención parcial en el corto plazo. Pero si no aclaras por qué algunos cargos reciben trato prioritario, podrías abrir tensiones de equidad y discusiones sobre criterio.",
+            history: "Interveniste la hemorragia de corto plazo. Protegiste roles críticos, aunque aumentó la presión por justificar selectividad y costo."
+          },
+          {
+            title: "Construir una propuesta de valor no monetaria",
+            text: "Formalizas inducción, aprendizaje, reconocimiento y desarrollo de carrera básico para darle a la empresa una identidad laboral más atractiva.",
+            tags: ["+ sostenibilidad", "+ cultura", "- impacto más lento"],
+            impacts: { speed: -4, coherence: 8, climate: 18, retention: 14, board: 8 },
+            feedback: "No resuelves todo de inmediato, pero empiezas a cambiar la experiencia de trabajo y la lógica relacional de la empresa. Esto no reemplaza al salario, pero sí transforma la percepción de futuro dentro de GFS.",
+            history: "Apostaste por construir vínculo y sentido de permanencia. El impacto es menos instantáneo, pero mucho más estructural."
+          },
+          {
+            title: "Fortalecer jefaturas y calidad de liderazgo",
+            text: "Inviertes primero en las jefaturas de local para ordenar trato, feedback, asignación de responsabilidades y coordinación entre áreas.",
+            tags: ["+ raíz del problema", "+ consistencia", "- requiere disciplina"],
+            impacts: { speed: -2, coherence: 16, climate: 16, retention: 12, board: 10 },
+            feedback: "Atacas una dimensión profunda: en GFS, la experiencia laboral depende demasiado del estilo de cada jefe. Mejorar liderazgo no es tan visible al principio, pero reduce arbitrariedad y hace más consistente la organización.",
+            history: "Fuiste a la raíz: no solo talento que se va, sino experiencia organizacional desigual según cada jefatura."
+          }
+        ]
+      },
+      {
+        title: "Diseño organizacional: estandarización o flexibilidad",
+        scenario: "GFS intenta combinar diferenciación por asesoría técnica con eficiencia operativa, pero esta estrategia híbrida no ha sido traducida claramente a todos los niveles. Las sucursales conviven con reglas distintas, aprendizajes no documentados y baja sistematización de errores y buenas prácticas.",
+        question: "¿Qué harías para que la empresa deje de operar como un archipiélago?",
+        instruction: "Aquí defines si la agilidad será realmente organizacional o seguirá atrapada en respuestas locales aisladas.",
+        options: [
+          {
+            title: "Estandarizar procesos en casi todo",
+            text: "Diseñas protocolos comunes de selección, inducción, coordinación y seguimiento para asegurar una experiencia homogénea.",
+            tags: ["+ orden", "+ replicabilidad", "- rigidez potencial"],
+            impacts: { speed: -10, coherence: 22, climate: -4, retention: 8, board: 12 },
+            feedback: "La empresa gana estructura y reduce arbitrariedad. Pero si confundes estandarización con burocracia, puedes matar la flexibilidad que históricamente le daba capacidad de respuesta local.",
+            history: "Elegiste coherencia fuerte. GFS se vuelve más gobernable, aunque el riesgo es caer en una profesionalización rígida."
+          },
+          {
+            title: "Mínimos corporativos + autonomía local",
+            text: "Fijas estándares no negociables y mecanismos de aprendizaje compartido, pero dejas espacio para adaptar decisiones al contexto de cada sucursal.",
+            tags: ["+ agilidad real", "+ aprendizaje", "+ balance"],
+            impacts: { speed: 8, coherence: 20, climate: 10, retention: 12, board: 14 },
+            feedback: "Esta decisión no solo ordena: rediseña cómo la organización aprende. La agilidad aparece aquí como capacidad de responder con criterio común, no como libertad desordenada. GFS deja de ser una suma de islas y empieza a convertirse en sistema.",
+            history: "Diseñaste una organización adaptable: mismo marco, distintas respuestas legítimas según contexto."
+          },
+          {
+            title: "Mantener diferencias entre sucursales",
+            text: "Cada jefatura conserva libertad para operar según realidad local, priorizando flexibilidad por sobre integración organizacional.",
+            tags: ["+ ajuste local", "- baja escala", "- aprendizaje fragmentado"],
+            impacts: { speed: 10, coherence: -20, climate: 0, retention: -10, board: -12 },
+            feedback: "Preservas cercanía y adaptación inmediata, pero renuncias a construir una organización más inteligente. La empresa sigue reaccionando caso a caso y la ventaja competitiva continúa dependiendo de personas específicas, no de capacidades institucionalizadas.",
+            history: "Mantuviste el modelo de islas. GFS sigue siendo flexible en cada rincón, pero débil como sistema."
+          }
+        ]
+      }
+    ];
+
+    const state = {
+      round: 0,
+      selected: null,
+      committed: false,
+      metrics: {
+        speed: 50,
+        coherence: 40,
+        climate: 55,
+        retention: 42,
+        board: 48
+      },
+      decisions: []
+    };
+
+    const els = {
+      phase: document.getElementById('phase'),
+      title: document.getElementById('title'),
+      scenario: document.getElementById('scenario'),
+      question: document.getElementById('question'),
+      instruction: document.getElementById('instruction'),
+      options: document.getElementById('options'),
+      applyBtn: document.getElementById('applyBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      continueBtn: document.getElementById('continueBtn'),
+      postActions: document.getElementById('postActions'),
+      feedback: document.getElementById('feedback'),
+      feedbackText: document.getElementById('feedbackText'),
+      historyList: document.getElementById('historyList'),
+      finalScreen: document.getElementById('finalScreen'),
+      mSpeed: document.getElementById('mSpeed'),
+      mCoh: document.getElementById('mCoh'),
+      mClimate: document.getElementById('mClimate'),
+      mRetention: document.getElementById('mRetention'),
+      mBoard: document.getElementById('mBoard'),
+      speedFill: document.getElementById('speedFill'),
+      cohFill: document.getElementById('cohFill'),
+      climateFill: document.getElementById('climateFill'),
+      retFill: document.getElementById('retFill'),
+      boardFill: document.getElementById('boardFill')
+    };
+
+    function clamp(v) { return Math.max(0, Math.min(100, v)); }
+
+    function fillClass(v) {
+      if (v >= 67) return 'good';
+      if (v >= 45) return 'warn';
+      return 'bad';
+    }
+
+    function updateMeters() {
+      const map = [
+        ['speed', 'mSpeed', 'speedFill'],
+        ['coherence', 'mCoh', 'cohFill'],
+        ['climate', 'mClimate', 'climateFill'],
+        ['retention', 'mRetention', 'retFill'],
+        ['board', 'mBoard', 'boardFill']
+      ];
+      map.forEach(([key, label, fill]) => {
+        const value = clamp(state.metrics[key]);
+        els[label].textContent = value;
+        els[fill].style.width = value + '%';
+        els[fill].className = 'fill ' + fillClass(value);
+      });
+    }
+
+    function addHistory(title, text) {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `<b>${title}</b><span>${text}</span>`;
+      els.historyList.prepend(div);
+    }
+
+    function renderRound() {
+      if (state.round >= rounds.length) {
+        renderFinal();
+        return;
+      }
+
+      const r = rounds[state.round];
+      state.selected = null;
+      state.committed = false;
+      els.applyBtn.disabled = true;
+      els.feedback.classList.remove('show');
+      els.postActions.style.display = 'none';
+      els.finalScreen.style.display = 'none';
+
+      els.phase.textContent = `Ronda ${state.round + 1} de ${rounds.length}`;
+      els.title.textContent = r.title;
+      els.scenario.textContent = r.scenario;
+      els.question.textContent = r.question;
+      els.instruction.textContent = r.instruction;
+
+      els.options.innerHTML = '';
+      r.options.forEach((opt, idx) => {
+        const div = document.createElement('div');
+        div.className = 'option';
+        div.innerHTML = `
+          <div class="option-title">${opt.title}</div>
+          <div class="option-text">${opt.text}</div>
+          <div class="impact-row">
+            ${opt.tags.map(tag => {
+              let c = 'warn';
+              if (tag.trim().startsWith('+')) c = 'good';
+              if (tag.trim().startsWith('-')) c = 'bad';
+              return `<span class="impact ${c}">${tag}</span>`;
+            }).join('')}
+          </div>
+        `;
+        div.addEventListener('click', () => {
+          if (state.committed) return;
+          [...els.options.children].forEach(c => c.classList.remove('active'));
+          div.classList.add('active');
+          state.selected = idx;
+          els.applyBtn.disabled = false;
+        });
+        els.options.appendChild(div);
+      });
+    }
+
+    function applyDecision() {
+      const r = rounds[state.round];
+      const opt = r.options[state.selected];
+      if (!opt || state.committed) return;
+      state.committed = true;
+
+      Object.keys(opt.impacts).forEach(k => {
+        state.metrics[k] = clamp(state.metrics[k] + opt.impacts[k]);
+      });
+      state.decisions.push({ round: r.title, option: opt.title });
+      updateMeters();
+
+      els.feedbackText.textContent = opt.feedback;
+      els.feedback.classList.add('show');
+      els.postActions.style.display = 'flex';
+
+      addHistory(r.title, opt.history);
+
+      els.applyBtn.disabled = true;
+    }
+
+    function continueSimulation() {
+      if (!state.committed) return;
+      state.round += 1;
+      renderRound();
+    }
+
+    function profileName() {
+      const m = state.metrics;
+      if (m.speed >= 60 && m.coherence < 50) return 'Rápida, pero caótica';
+      if (m.coherence >= 65 && m.speed < 45) return 'Ordenada, pero lenta';
+      if (m.coherence >= 60 && m.speed >= 55 && m.retention >= 55) return 'Organización adaptable';
+      return 'En transición inestable';
+    }
+
+    function renderFinal() {
+      els.phase.textContent = 'Resultado final';
+      els.title.textContent = '¿Qué organización construiste?';
+      els.scenario.textContent = 'Tus decisiones ya no son tácticas: ahora revelan una lógica organizacional. Este resultado muestra cómo entendiste —o no— la agilidad en GFS.';
+      els.question.textContent = '';
+      els.instruction.textContent = '';
+      els.options.innerHTML = '';
+      els.feedback.classList.remove('show');
+      els.applyBtn.disabled = true;
+
+      const profile = profileName();
+      const m = state.metrics;
+
+      let interpretation = '';
+      if (profile === 'Rápida, pero caótica') {
+        interpretation = 'Priorizaste respuesta local y velocidad, pero no lograste construir una organización coherente. En este escenario, GFS sigue dependiendo de jefaturas individuales más que de capacidades institucionalizadas.';
+      } else if (profile === 'Ordenada, pero lenta') {
+        interpretation = 'Lograste profesionalizar y ordenar, pero con riesgo de rigidizar la organización. Aquí el desafío sería no confundir estructura con burocracia.';
+      } else if (profile === 'Organización adaptable') {
+        interpretation = 'Construiste el resultado más cercano a la agilidad organizacional: criterios comunes, liderazgo más consistente, autonomía encuadrada y mayor capacidad para aprender sin caer en caos.';
+      } else {
+        interpretation = 'Tu diseño organizacional muestra avances, pero aún mantiene tensiones fuertes entre urgencia operativa, coordinación y sostenibilidad. GFS todavía no termina de transformarse en sistema.';
+      }
+
+      els.finalScreen.style.display = 'block';
+      els.finalScreen.innerHTML = `
+        <div class="question-box">
+          <h3>Perfil final: ${profile}</h3>
+          <p>${interpretation}</p>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-box">
+            <h5>Velocidad</h5>
+            <p>Tu organización cerró con <b>${m.speed}</b>/100. Esto muestra cuánto privilegiaste capacidad de respuesta por sobre orden y deliberación.</p>
+          </div>
+          <div class="result-box">
+            <h5>Coherencia</h5>
+            <p>Tu organización cerró con <b>${m.coherence}</b>/100. Aquí se refleja si GFS sigue siendo una suma de sucursales o empieza a funcionar como sistema.</p>
+          </div>
+          <div class="result-box">
+            <h5>Retención</h5>
+            <p>Tu organización cerró con <b>${m.retention}</b>/100. Esto sintetiza si tus decisiones protegieron o no la base humana de la ventaja competitiva.</p>
+          </div>
+        </div>
+
+        <div class="final-quote">
+          “La agilidad no consiste en poner Scrum o Kanban en la empresa.<br>
+          Consiste en rediseñar cómo se toman decisiones, cómo se aprende y cómo se coordina el trabajo bajo presión.”
+        </div>
+
+        <div class="source-note" style="margin-top:16px;">
+          Esta simulación está pensada para abrir discusión en clase: no entrega respuestas correctas o incorrectas, sino que hace visibles los trade-offs de profesionalizar GFS sin destruir la flexibilidad que lo sostuvo históricamente.
+        </div>
+      `;
+    }
+
+    function resetAll() {
+      state.round = 0;
+      state.selected = null;
+      state.committed = false;
+      state.decisions = [];
+      state.metrics = {
+        speed: 50,
+        coherence: 40,
+        climate: 55,
+        retention: 42,
+        board: 48
+      };
+      els.historyList.innerHTML = `
+        <div class="history-item">
+          <b>Punto de partida</b>
+          <span>GFS necesita ordenar la casa sin perder flexibilidad. El dilema no es técnico: es organizacional.</span>
+        </div>
+      `;
+      updateMeters();
+      renderRound();
+    }
+
+    els.applyBtn.addEventListener('click', applyDecision);
+    els.resetBtn.addEventListener('click', resetAll);
+    els.continueBtn.addEventListener('click', continueSimulation);
+
+    updateMeters();
+    renderRound();
+  </script>
+</body>
+</html>
+
+
+
